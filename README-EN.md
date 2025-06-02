@@ -1,6 +1,6 @@
 # Taiga MCP Server
 
-Taiga MCP is a server that provides an interface to access the [Taiga](https://www.taiga.io/) project management system using the [Model Context Protocol (MCP)](https://github.com/model-context-protocol/model-context-protocol) standard. This allows AI assistants to directly interact with the Taiga API to manage projects, user stories, tasks, and more.
+Taiga MCP is a server that provides an interface to access the [Taiga](https://www.taiga.io/) project management system using the [Model Context Protocol (MCP)](https://github.com/modelcontextprotocol) standard. This allows AI assistants to directly interact with the Taiga API to manage projects, user stories, tasks, and more.
 
 ## Key Features
 

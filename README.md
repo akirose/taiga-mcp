@@ -1,6 +1,6 @@
 # Taiga MCP 서버
 
-Taiga MCP는 [Model Context Protocol(MCP)](https://github.com/model-context-protocol/model-context-protocol) 표준을 사용하여 [Taiga](https://www.taiga.io/) 프로젝트 관리 시스템에 접근할 수 있는 인터페이스를 제공하는 서버입니다. 이를 통해 AI 어시스턴트는 Taiga API와 직접 상호작용하여 프로젝트, 사용자 스토리, 작업, 이슈 등을 관리할 수 있습니다.
+Taiga MCP는 [Model Context Protocol(MCP)](https://github.com/modelcontextprotocol) 표준을 사용하여 [Taiga](https://www.taiga.io/) 프로젝트 관리 시스템에 접근할 수 있는 인터페이스를 제공하는 서버입니다. 이를 통해 AI 어시스턴트는 Taiga API와 직접 상호작용하여 프로젝트, 사용자 스토리, 작업, 이슈 등을 관리할 수 있습니다.
 
 ## 주요 기능
 
