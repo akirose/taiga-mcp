@@ -205,7 +205,7 @@ def list_user_stories(
     epic: Optional[int] = None,
     role: Optional[int] = None,
     status__is_closed: Optional[bool] = None,
-    exclude_status: Optional[int] = None,
+    exclude_status: Optional[str] = None,
     exclude_tags: Optional[str] = None,
     exclude_assigned_to: Optional[int] = None,
     exclude_role: Optional[int] = None,
@@ -226,7 +226,7 @@ def list_user_stories(
         epic: Epic ID to filter user stories
         role: Role ID to filter user stories
         status__is_closed: Filter closed or open user stories
-        exclude_status: Exclude stories with this status ID
+        exclude_status: Exclude stories with this status ID (comma-separated)
         exclude_tags: Exclude stories with these tags (comma-separated)
         exclude_assigned_to: Exclude stories assigned to this user
         exclude_role: Exclude stories with this role ID
@@ -396,7 +396,7 @@ def list_tasks(
     owner: Optional[int] = None,
     watchers: Optional[int] = None,
     status__is_closed: Optional[bool] = None,
-    exclude_status: Optional[int] = None,
+    exclude_status: Optional[str] = None,
     exclude_tags: Optional[str] = None,
     exclude_role: Optional[int] = None,
     exclude_owner: Optional[int] = None,
@@ -416,7 +416,7 @@ def list_tasks(
         watchers: Watcher user ID
         assigned_to: User ID tasks are assigned to
         status__is_closed: Filter closed or open tasks (true|false)
-        exclude_status: Exclude tasks with this status ID
+        exclude_status: Exclude tasks with this status ID (comma-separated)
         exclude_tags: Exclude tasks with these tags (comma-separated)
         exclude_role: Exclude tasks with this role ID
         exclude_owner: Exclude tasks owned by this user ID
@@ -565,7 +565,7 @@ def list_issues(
     role: Optional[int] = None, 
     watchers: Optional[int] = None,
     status__is_closed: Optional[bool] = None,
-    exclude_status: Optional[int] = None,
+    exclude_status: Optional[str] = None,
     exclude_severity: Optional[int] = None,
     exclude_priority: Optional[int] = None,
     exclude_owner: Optional[int] = None,
@@ -589,7 +589,7 @@ def list_issues(
         role: Role ID
         watchers: Watcher user ID
         status__is_closed: Filter closed or open issues (true|false)
-        exclude_status: Exclude issues with this status ID
+        exclude_status: Exclude issues with this status ID (comma-separated)
         exclude_severity: Exclude issues with this severity ID
         exclude_priority: Exclude issues with this priority ID
         exclude_owner: Exclude issues owned by this user ID
