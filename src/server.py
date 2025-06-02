@@ -75,6 +75,70 @@ def login():
 
 login()
 
+@mcp.tool("list_projects")
+def list_projects(
+    member: Optional[int] = None,
+    members: Optional[str] = None,
+    is_looking_for_people: Optional[bool] = None,
+    is_featured: Optional[bool] = None,
+    is_backlog_activated: Optional[bool] = None,
+    is_kanban_activated: Optional[bool] = None,
+    order_by: Optional[str] = None
+) -> List[Dict[str, Any]]:
+    """
+    Retrieve projects from Taiga with various filtering options.
+    
+    Args:
+        member: Member ID to filter projects
+        members: Member IDs to filter projects (comma-separated)
+        is_looking_for_people: Filter projects that are looking for new members
+        is_featured: Filter projects highlighted by instance staff
+        is_backlog_activated: Filter projects with active backlog
+        is_kanban_activated: Filter projects with active kanban
+        order_by: Field to order the results by (e.g., 'total_fans', 'total_activity')
+    
+    Returns:
+        List of projects matching the criteria
+    """
+    if api is None:
+        raise TaigaException("Taiga API client is not initialized")
+    
+    # Prepare filters
+    params = {}
+    
+    # Add all provided filters to the params dictionary
+    if member is not None:
+        params["member"] = member
+    if members is not None:
+        # Convert comma-separated values to list
+        params["members"] = members.split(",")
+    if is_looking_for_people is not None:
+        params["is_looking_for_people"] = is_looking_for_people
+    if is_featured is not None:
+        params["is_featured"] = is_featured
+    if is_backlog_activated is not None:
+        params["is_backlog_activated"] = is_backlog_activated
+    if is_kanban_activated is not None:
+        params["is_kanban_activated"] = is_kanban_activated
+    if order_by is not None:
+        params["order_by"] = order_by
+    
+    try:
+        # Projects.list() expects key-value arguments, so we pass params as **kwargs
+        projects = api.projects.list(**params)
+        logger.info(f"Fetched {len(projects)} projects from Taiga")
+        # Convert project objects to dictionaries if needed
+        return [project.__dict__ if hasattr(project, "__dict__") else project for project in projects]
+    except TaigaAuthenticationError as e:
+        logger.error(f"Authentication failed: {e}")
+        raise TaigaException(f"Authentication error: {e}")
+    except TaigaException as e:
+        logger.error(f"Failed to fetch projects: {e}")
+        raise e
+    except Exception as e:
+        logger.error(f"Unexpected error while fetching projects: {e}", exc_info=True)
+        raise TaigaException(f"Error fetching projects: {e}")
+
 @mcp.tool("get_project_info")
 def get_project_info(project_id: Optional[int] = None) -> Dict[str, Any]:
     """
@@ -235,19 +299,19 @@ def list_user_stories(
 @mcp.tool("get_user_story")
 def get_user_story(user_story_id: int) -> Dict[str, Any]:
     """
-    특정 ID의 사용자 스토리에 대한 상세 정보를 가져옵니다.
+    Retrieve detailed information for a user story by its ID.
     
     Args:
-        user_story_id: 조회할 사용자 스토리의 ID
+        user_story_id: ID of the user story to retrieve
     
     Returns:
-        사용자 스토리 상세 정보를 담은 딕셔너리
+        Dictionary containing user story details and comments
     """
     if api is None:
         raise TaigaException("Taiga API client is not initialized")
         
     try:
-        # API를 사용하여 특정 ID의 사용자 스토리 조회
+        # Get user story by ID
         user_story = api.user_stories.get(user_story_id)
         if user_story is None:
             raise TaigaException(f"User story with ID {user_story_id} not found")
@@ -280,6 +344,45 @@ def get_user_story(user_story_id: int) -> Dict[str, Any]:
         logger.error(f"Unexpected error while fetching user story: {e}", exc_info=True)
         raise TaigaException(f"Error fetching user story: {e}")
 
+@mcp.tool("get_user_story_by_ref")
+def get_user_story_by_ref(ref: int, project: Optional[int] = None) -> Dict[str, Any]:
+    """
+    Retrieve detailed information for a user story by its reference number and project.
+    
+    Args:
+        ref: Reference number of the user story within the project
+        project: Project ID
+    
+    Returns:
+        Dictionary containing user story details
+    """
+    if api is None:
+        raise TaigaException("Taiga API client is not initialized")
+        
+    if project is None:
+        if default_project is None:
+            raise TaigaException("No project ID specified and no default project configured")
+        project = default_project
+
+    try:
+        # Get user story by reference number and project ID
+        user_story = api.user_stories.get_by_ref(ref=ref, project=project)
+        if user_story is None:
+            raise TaigaException(f"User story with reference #{ref} not found in project {project}")
+
+        logger.info(f"Retrieved user story: Reference #{ref} in project {project}")
+        
+        return user_story
+    except TaigaAuthenticationError as e:
+        logger.error(f"Authentication failed: {e}")
+        raise TaigaException(f"Authentication error: {e}")
+    except TaigaException as e:
+        logger.error(f"Failed to fetch user story by reference: {e}")
+        raise e
+    except Exception as e:
+        logger.error(f"Unexpected error while fetching user story by reference: {e}", exc_info=True)
+        raise TaigaException(f"Error fetching user story by reference: {e}")
+
 
 @mcp.tool("list_tasks")
 def list_tasks(
@@ -300,27 +403,27 @@ def list_tasks(
     exclude_assigned_to: Optional[int] = None
 ) -> List[Dict[str, Any]]:
     """
-    Taiga 프로젝트 내의 작업(Task) 목록을 조회합니다.
+    Retrieve tasks from a Taiga project with various filtering options.
     
     Args:
-        project: 프로젝트 ID
-        status: 상태 ID
-        tags: 쉼표(,)로 구분된 태그
-        user_story: 사용자 스토리 ID
-        role: 역할 ID
-        owner: 소유자 ID
-        milestone: 마일스톤 ID
-        watchers: 감시자 사용자 ID
-        assigned_to: 할당된 사용자 ID
-        status__is_closed: (true|false)
-        exclude_status: 제외할 상태 ID
-        exclude_tags: 쉼표(,)로 구분된 제외할 태그
-        exclude_role: 제외할 역할 ID
-        exclude_owner: 제외할 소유자 ID
-        exclude_assigned_to: 제외할 할당 사용자 ID
+        project: Project ID
+        status: Status ID
+        tags: Tags to filter tasks (comma-separated)
+        user_story: User story ID
+        role: Role ID
+        owner: Owner user ID
+        milestone: Milestone ID
+        watchers: Watcher user ID
+        assigned_to: User ID tasks are assigned to
+        status__is_closed: Filter closed or open tasks (true|false)
+        exclude_status: Exclude tasks with this status ID
+        exclude_tags: Exclude tasks with these tags (comma-separated)
+        exclude_role: Exclude tasks with this role ID
+        exclude_owner: Exclude tasks owned by this user ID
+        exclude_assigned_to: Exclude tasks assigned to this user ID
     
     Returns:
-        조건에 맞는 작업 목록
+        List of tasks matching the criteria
     """
     if api is None:
         raise TaigaException("Taiga API client is not initialized")
@@ -365,7 +468,7 @@ def list_tasks(
         params["exclude_assigned_to"] = exclude_assigned_to
     
     try:
-        # Tasks.list()는 단일 query_params 딕셔너리를 받으므로 params 전체를 전달합니다
+        # Tasks.list() accepts a single query_params dictionary
         tasks = api.tasks.list(query_params=params)
         logger.info(f"Fetched {len(tasks)} tasks from Taiga")
         # Convert task objects to dictionaries if needed
@@ -383,22 +486,22 @@ def list_tasks(
 @mcp.tool("get_task")
 def get_task(task_id: int) -> Dict[str, Any]:
     """
-    ID로 지정한 단일 작업(Task)의 상세 정보를 조회합니다.
+    Retrieve detailed information for a task by its ID.
     
     Args:
-        task_id: 조회할 작업의 ID
+        task_id: ID of the task to retrieve
         
     Returns:
-        작업 상세 정보가 담긴 딕셔너리
+        Dictionary containing task details
     """
     if api is None:
         raise TaigaException("Taiga API client is not initialized")
     
     try:
-        # 작업 ID로 단일 작업 조회
+        # Get task by ID
         task = api.tasks.get(task_id)
         logger.info(f"Retrieved task: {task_id}")
-        # 작업 객체를 딕셔너리로 변환
+        # Convert task object to dictionary
         return task.__dict__ if hasattr(task, "__dict__") else task
     except TaigaAuthenticationError as e:
         logger.error(f"Authentication failed: {e}")
@@ -409,6 +512,229 @@ def get_task(task_id: int) -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"Unexpected error while fetching task {task_id}: {e}", exc_info=True)
         raise TaigaException(f"Error fetching task: {e}")
+
+@mcp.tool("get_task_by_ref")
+def get_task_by_ref(ref: int, project: Optional[int] = None) -> Dict[str, Any]:
+    """
+    Retrieve detailed information for a task by its reference number and project.
+    
+    Args:
+        ref: Reference number of the task within the project
+        project: Project ID
+    
+    Returns:
+        Dictionary containing task details
+    """
+    if api is None:
+        raise TaigaException("Taiga API client is not initialized")
+        
+    if project is None:
+        if default_project is None:
+            raise TaigaException("No project ID specified and no default project configured")
+        project = default_project
+
+    try:
+        # Get task by reference number and project ID
+        task = api.tasks.get_by_ref(ref=ref, project=project)
+        if task is None:
+            raise TaigaException(f"Task with reference #{ref} not found in project {project}")
+
+        logger.info(f"Retrieved task: Reference #{ref} in project {project}")
+        
+        return task.__dict__ if hasattr(task, "__dict__") else task
+    except TaigaAuthenticationError as e:
+        logger.error(f"Authentication failed: {e}")
+        raise TaigaException(f"Authentication error: {e}")
+    except TaigaException as e:
+        logger.error(f"Failed to fetch task by reference: {e}")
+        raise e
+    except Exception as e:
+        logger.error(f"Unexpected error while fetching task by reference: {e}", exc_info=True)
+        raise TaigaException(f"Error fetching task by reference: {e}")
+
+@mcp.tool("list_issues")
+def list_issues(
+    project: Optional[int] = None,
+    status: Optional[int] = None,
+    severity: Optional[int] = None,
+    priority: Optional[int] = None,
+    owner: Optional[int] = None,
+    assigned_to: Optional[int] = None,
+    tags: Optional[str] = None,
+    type: Optional[int] = None,
+    role: Optional[int] = None, 
+    watchers: Optional[int] = None,
+    status__is_closed: Optional[bool] = None,
+    exclude_status: Optional[int] = None,
+    exclude_severity: Optional[int] = None,
+    exclude_priority: Optional[int] = None,
+    exclude_owner: Optional[int] = None,
+    exclude_assigned_to: Optional[int] = None,
+    exclude_tags: Optional[str] = None,
+    exclude_type: Optional[int] = None,
+    exclude_role: Optional[int] = None
+) -> List[Dict[str, Any]]:
+    """
+    Retrieve issues from a Taiga project with various filtering options.
+    
+    Args:
+        project: Project ID
+        status: Status ID
+        severity: Severity ID
+        priority: Priority ID
+        owner: Owner user ID
+        assigned_to: User ID issues are assigned to
+        tags: Tags to filter issues (comma-separated)
+        type: Issue type ID
+        role: Role ID
+        watchers: Watcher user ID
+        status__is_closed: Filter closed or open issues (true|false)
+        exclude_status: Exclude issues with this status ID
+        exclude_severity: Exclude issues with this severity ID
+        exclude_priority: Exclude issues with this priority ID
+        exclude_owner: Exclude issues owned by this user ID
+        exclude_assigned_to: Exclude issues assigned to this user ID
+        exclude_tags: Exclude issues with these tags (comma-separated)
+        exclude_type: Exclude issues with this type ID
+        exclude_role: Exclude issues with this role ID
+    
+    Returns:
+        List of issues matching the criteria
+    """
+    if api is None:
+        raise TaigaException("Taiga API client is not initialized")
+    
+    # Use default project if not specified
+    if project is None:
+        project = default_project
+    
+    # Prepare filters
+    params = {}
+    
+    # Add all provided filters to the params dictionary
+    if project is not None:
+        params["project"] = project
+    if status is not None:
+        params["status"] = status
+    if severity is not None:
+        params["severity"] = severity
+    if priority is not None:
+        params["priority"] = priority
+    if owner is not None:
+        params["owner"] = owner
+    if assigned_to is not None:
+        params["assigned_to"] = assigned_to
+    if tags is not None:
+        params["tags"] = tags.split(",")
+    if type is not None:
+        params["type"] = type
+    if role is not None:
+        params["role"] = role
+    if watchers is not None:
+        params["watchers"] = watchers
+    if status__is_closed is not None:
+        params["status__is_closed"] = status__is_closed
+    if exclude_status is not None:
+        params["exclude_status"] = exclude_status
+    if exclude_severity is not None:
+        params["exclude_severity"] = exclude_severity
+    if exclude_priority is not None:
+        params["exclude_priority"] = exclude_priority
+    if exclude_owner is not None:
+        params["exclude_owner"] = exclude_owner
+    if exclude_assigned_to is not None:
+        params["exclude_assigned_to"] = exclude_assigned_to
+    if exclude_tags is not None:
+        params["exclude_tags"] = exclude_tags.split(",")
+    if exclude_type is not None:
+        params["exclude_type"] = exclude_type
+    if exclude_role is not None:
+        params["exclude_role"] = exclude_role
+    
+    try:
+        # Issues.list() accepts a single query_params dictionary
+        issues = api.issues.list(query_params=params)
+        logger.info(f"Fetched {len(issues)} issues from Taiga")
+        # Convert issue objects to dictionaries if needed
+        return [issue.__dict__ if hasattr(issue, "__dict__") else issue for issue in issues]
+    except TaigaAuthenticationError as e:
+        logger.error(f"Authentication failed: {e}")
+        raise TaigaException(f"Authentication error: {e}")
+    except TaigaException as e:
+        logger.error(f"Failed to fetch issues: {e}")
+        raise e
+    except Exception as e:
+        logger.error(f"Unexpected error while fetching issues: {e}", exc_info=True)
+        raise TaigaException(f"Error fetching issues: {e}")
+
+@mcp.tool("get_issue")
+def get_issue(issue_id: int) -> Dict[str, Any]:
+    """
+    Retrieve detailed information for an issue by its ID.
+    
+    Args:
+        issue_id: ID of the issue to retrieve
+        
+    Returns:
+        Dictionary containing issue details
+    """
+    if api is None:
+        raise TaigaException("Taiga API client is not initialized")
+    
+    try:
+        # Get issue by ID
+        issue = api.issues.get(issue_id)
+        logger.info(f"Retrieved issue: {issue_id}")
+        # Convert issue object to dictionary
+        return issue.__dict__ if hasattr(issue, "__dict__") else issue
+    except TaigaAuthenticationError as e:
+        logger.error(f"Authentication failed: {e}")
+        raise TaigaException(f"Authentication error: {e}")
+    except TaigaException as e:
+        logger.error(f"Failed to fetch issue {issue_id}: {e}")
+        raise e
+    except Exception as e:
+        logger.error(f"Unexpected error while fetching issue {issue_id}: {e}", exc_info=True)
+        raise TaigaException(f"Error fetching issue: {e}")
+
+@mcp.tool("get_issue_by_ref")
+def get_issue_by_ref(ref: int, project: Optional[int] = None) -> Dict[str, Any]:
+    """
+    Retrieve detailed information for an issue by its reference number and project.
+    
+    Args:
+        ref: Reference number of the issue within the project
+        project: Project ID
+    
+    Returns:
+        Dictionary containing issue details
+    """
+    if api is None:
+        raise TaigaException("Taiga API client is not initialized")
+        
+    if project is None:
+        if default_project is None:
+            raise TaigaException("No project ID specified and no default project configured")
+        project = default_project
+
+    try:
+        # Get issue by reference number and project ID
+        issue = api.issues.get_by_ref(ref=ref, project=project)
+        if issue is None:
+            raise TaigaException(f"Issue with reference #{ref} not found in project {project}")
+
+        logger.info(f"Retrieved issue: Reference #{ref} in project {project}")
+        
+        return issue.__dict__ if hasattr(issue, "__dict__") else issue
+    except TaigaAuthenticationError as e:
+        logger.error(f"Authentication failed: {e}")
+        raise TaigaException(f"Authentication error: {e}")
+    except TaigaException as e:
+        logger.error(f"Failed to fetch issue by reference: {e}")
+        raise e
+    except Exception as e:
+        logger.error(f"Unexpected error while fetching issue by reference: {e}", exc_info=True)
+        raise TaigaException(f"Error fetching issue by reference: {e}")
 
 # --- Run the server ---
 if __name__ == "__main__":
